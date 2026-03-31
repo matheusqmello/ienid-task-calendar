@@ -170,9 +170,11 @@ function loadTasksFromStorage() {
         task.color = AVAILABLE_COLORS[0];
       }
       
+      const displayName = task.type === "personalizado" ? (task.customName || "Personalizado") : getTaskName(task.type);
+      
       let badge = document.createElement("div");
       badge.className = `task-badge task-${task.type}`;
-      badge.innerHTML = `<strong>${getTaskName(task.type)}</strong><br><span class="task-person-name">${task.name}</span>`;
+      badge.innerHTML = `<strong>${displayName}</strong><br><span class="task-person-name">${task.name}</span>`;
       badge.style.backgroundColor = task.color;
       badge.style.color = getContrastColor(task.color);
 
@@ -180,6 +182,7 @@ function loadTasksFromStorage() {
       badge.dataset.type = task.type;
       badge.dataset.name = task.name;
       badge.dataset.color = task.color;
+      badge.dataset.customName = task.customName || "";
 
       badge.onclick = () => editTask(badge);
 
@@ -195,6 +198,7 @@ function openModal(btn) {
   editingTask = null;
 
   document.getElementById("personName").value = "";
+  document.getElementById("errorMsg").innerText = "Digite um nome.";
   document.getElementById("errorMsg").classList.add("d-none");
   document.getElementById("deleteBtn").style.display = "none";  
 
@@ -207,12 +211,25 @@ function openModal(btn) {
   }
   renderTaskColorPicker(initialColor);
 
+  // Hide custom task name field initially
+  document.getElementById("customTaskNameDiv").style.display = "none";
+  document.getElementById("customTaskName").value = "";
+
   typeSelect.onchange = () => {
-    selectedColor = getTaskColors()[typeSelect.value];
+    const selectedType = typeSelect.value;
+    selectedColor = getTaskColors()[selectedType];
     if (!AVAILABLE_COLORS.includes(selectedColor)) {
       selectedColor = AVAILABLE_COLORS[0];
     }
     updateColorSelection();
+
+    // Show/hide custom task name field
+    if (selectedType === "personalizado") {
+      document.getElementById("customTaskNameDiv").style.display = "block";
+    } else {
+      document.getElementById("customTaskNameDiv").style.display = "none";
+      document.getElementById("customTaskName").value = "";
+    }
   };
 
   new bootstrap.Modal(document.getElementById("taskModal")).show();
@@ -222,14 +239,23 @@ function saveTask() {
   const type = document.getElementById("taskType").value;
   const name = document.getElementById("personName").value.trim();
   const color = selectedColor;
+  const customName = type === "personalizado" ? document.getElementById("customTaskName").value.trim() : "";
 
   if (!name) {
     document.getElementById("errorMsg").classList.remove("d-none");
     return;
   }
 
+  if (type === "personalizado" && !customName) {
+    document.getElementById("errorMsg").innerText = "Digite um nome para a tarefa.";
+    document.getElementById("errorMsg").classList.remove("d-none");
+    return;
+  }
+
+  const displayName = type === "personalizado" ? customName : getTaskName(type);
+
   if (editingTask) {
-    editingTask.innerHTML = `<strong>${getTaskName(type)}</strong><br><span class="task-person-name">${name}</span>`;
+    editingTask.innerHTML = `<strong>${displayName}</strong><br><span class="task-person-name">${name}</span>`;
     editingTask.className = `task-badge task-${type}`;
     editingTask.style.backgroundColor = color;
     editingTask.style.color = getContrastColor(color);
@@ -237,10 +263,11 @@ function saveTask() {
     editingTask.dataset.type = type;
     editingTask.dataset.name = name;
     editingTask.dataset.color = color;
+    editingTask.dataset.customName = customName;
   } else {
     let badge = document.createElement("div");
     badge.className = `task-badge task-${type}`;
-    badge.innerHTML = `<strong>${getTaskName(type)}</strong><br><span class="task-person-name">${name}</span>`;
+    badge.innerHTML = `<strong>${displayName}</strong><br><span class="task-person-name">${name}</span>`;
     badge.style.backgroundColor = color;
     badge.style.color = getContrastColor(color);
     
@@ -248,6 +275,7 @@ function saveTask() {
     badge.dataset.type = type;
     badge.dataset.name = name;
     badge.dataset.color = color;
+    badge.dataset.customName = customName;
 
     badge.onclick = () => editTask(badge);
 
@@ -281,8 +309,9 @@ function saveTasksToStorage() {
       const type = badge.dataset.type;
       const name = badge.dataset.name;
       const color = badge.dataset.color;
+      const customName = badge.dataset.customName || "";
 
-      tasks.push({ type, name, color: color });
+      tasks.push({ type, name, color: color, customName });
     });
 
     if (tasks.length > 0) {
@@ -313,12 +342,32 @@ function editTask(badge) {
   
   renderTaskColorPicker(badge.dataset.color);
 
+  // Handle custom task name
+  const customTaskNameDiv = document.getElementById("customTaskNameDiv");
+  const customTaskNameInput = document.getElementById("customTaskName");
+  if (badge.dataset.type === "personalizado") {
+    customTaskNameDiv.style.display = "block";
+    customTaskNameInput.value = badge.dataset.customName || "";
+  } else {
+    customTaskNameDiv.style.display = "none";
+    customTaskNameInput.value = "";
+  }
+
   document.getElementById("taskType").onchange = () => {
-    selectedColor = getTaskColors()[document.getElementById("taskType").value];
+    const selectedType = document.getElementById("taskType").value;
+    selectedColor = getTaskColors()[selectedType];
     if (!AVAILABLE_COLORS.includes(selectedColor)) {
       selectedColor = AVAILABLE_COLORS[0];
     }
     updateColorSelection();
+
+    // Show/hide custom task name field
+    if (selectedType === "personalizado") {
+      customTaskNameDiv.style.display = "block";
+    } else {
+      customTaskNameDiv.style.display = "none";
+      customTaskNameInput.value = "";
+    }
   };
 
   document.getElementById("deleteBtn").style.display = "inline-block";
@@ -336,7 +385,8 @@ function getTaskName(type) {
     pregacao: "Pregação",
     louvor: "Louvor",
     oracao: "Oração",
-    ofertas: "Ofertas"
+    ofertas: "Ofertas",
+    personalizado: "Personalizado"
   }[type];
 }
 
